@@ -51,5 +51,5 @@ async def get_users():
         logger.error(f"Error fetching users: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Database error: {str(e)}"
+            detail=f"Database error fetching users: {str(e)}"
         )
