@@ -316,10 +316,21 @@ async def get_quiz(quiz_id: int):
         # Get quiz
         quiz_query = text("SELECT * FROM quiz WHERE id = :quiz_id")
         quiz_result = db.execute(quiz_query, {"quiz_id": quiz_id})
-        quiz = dict(quiz_result.fetchone())
+        quiz_row = quiz_result.fetchone()
 
-        if not quiz:
+        if not quiz_row:
             raise HTTPException(status_code=404, detail="Quiz not found")
+
+        # Convert quiz row to dictionary
+        quiz = {
+            "id": int(quiz_row[0]),
+            "name": str(quiz_row[1]),
+            "description": str(quiz_row[2]),
+            "image": str(quiz_row[3]),
+            "category": str(quiz_row[4]),
+            "difficulty": str(quiz_row[5]),
+            "created_at": quiz_row[6]
+        }
 
         # Get questions
         questions_query = text("""
@@ -329,10 +340,19 @@ async def get_quiz(quiz_id: int):
         """)
         questions_result = db.execute(questions_query, {"quiz_id": quiz_id})
         questions = []
+
         for row in questions_result:
-            question_data = dict(row)
-            # Convert choices from JSONB to list
-            question_data["choices"] = question_data["choices"]
+            question_data = {
+                "id": int(row[0]),
+                "quiz_id": int(row[1]),
+                "question_text": str(row[2]),
+                "choices": row[3],  # This is already JSONB
+                "correct_answer_index": int(row[4]),
+                "explanation": str(row[5]),
+                "category": str(row[6]),
+                "difficulty": str(row[7]),
+                "image": str(row[8])
+            }
             questions.append(question_data)
 
         return {**quiz, "questions": questions}
