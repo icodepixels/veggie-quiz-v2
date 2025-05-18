@@ -501,13 +501,22 @@ async def create_user(user: UserCreate):
         new_user = result.fetchone()
         db.commit()
 
-        return UserResponse(
-            id=new_user[0],
-            email=new_user[1],
-            username=new_user[2],
-            created_at=new_user[3],
-            last_login=new_user[4]
+        # Create access token
+        access_token_expires = timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        access_token = create_access_token(
+            data={"sub": new_user[1]},  # new_user[1] is email
+            expires_delta=access_token_expires
         )
+
+        return {
+            "id": new_user[0],
+            "email": new_user[1],
+            "username": new_user[2],
+            "created_at": new_user[3],
+            "last_login": new_user[4],
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -567,6 +576,39 @@ async def login_for_access_token(login_data: EmailLogin):
 @app.get("/users/me", response_model=UserResponse)
 async def read_users_me(current_user: UserResponse = Depends(get_current_user)):
     return current_user
+
+@app.delete("/users/me")
+async def delete_user(current_user: UserResponse = Depends(get_current_user)):
+    try:
+        db = SessionLocal()
+
+        # Delete user's quiz results first (due to foreign key constraint)
+        delete_results_query = text("DELETE FROM quiz_results WHERE user_id = :user_id")
+        db.execute(delete_results_query, {"user_id": current_user.id})
+
+        # Delete user
+        delete_user_query = text("DELETE FROM users WHERE id = :user_id")
+        result = db.execute(delete_user_query, {"user_id": current_user.id})
+        db.commit()
+
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return {"message": "User account deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error deleting user: {str(e)}"
+        )
+    finally:
+        db.close()
 
 @app.get("/quiz-categories", response_model=CategoryResponse)
 async def get_quiz_categories():
