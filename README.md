@@ -43,7 +43,7 @@ The API will be available at `http://localhost:8000`
 
 #### Create User
 - **POST** `/users`
-- **Description**: Create a new user account
+- **Description**: Create a new user account and get authentication token
 - **Request Body**:
   ```json
   {
@@ -51,7 +51,23 @@ The API will be available at `http://localhost:8000`
     "username": "testuser"
   }
   ```
-- **Response**: User details including ID and creation timestamp
+- **Response**:
+  ```json
+  {
+    "id": 1,
+    "email": "user@example.com",
+    "username": "testuser",
+    "created_at": "2024-05-01T12:00:00Z",
+    "last_login": null,
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer"
+  }
+  ```
+- **Notes**:
+  - Returns user details and authentication token in a single response
+  - Token is valid for 1 year
+  - Returns 400 if email or username already exists
+  - Returns 500 if database error occurs
 
 #### Login
 - **POST** `/token`
@@ -76,6 +92,23 @@ The API will be available at `http://localhost:8000`
 - **Description**: Get details of currently authenticated user
 - **Headers**: `Authorization: Bearer <token>`
 - **Response**: User details
+
+#### Delete Current User
+- **DELETE** `/users/me`
+- **Description**: Delete the currently authenticated user's account and all associated quiz results
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**:
+  ```json
+  {
+    "message": "User account deleted successfully"
+  }
+  ```
+- **Notes**:
+  - Requires authentication
+  - Deletes all quiz results associated with the user
+  - Cannot be undone
+  - Returns 404 if user not found
+  - Returns 500 if database error occurs
 
 ### Quizzes
 

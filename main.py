@@ -538,11 +538,19 @@ async def login_for_access_token(login_data: EmailLogin):
         user = result.fetchone()
 
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Email not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            # User doesn't exist, create a new account
+            # Generate username from email (part before @)
+            username = login_data.email.split('@')[0]
+
+            # Create new user
+            insert_query = text("""
+                INSERT INTO users (email, username)
+                VALUES (:email, :username)
+                RETURNING id, email, username, created_at, last_login
+            """)
+            result = db.execute(insert_query, {"email": login_data.email, "username": username})
+            user = result.fetchone()
+            db.commit()
 
         # Update last login
         update_query = text("""
@@ -562,13 +570,11 @@ async def login_for_access_token(login_data: EmailLogin):
         )
 
         return {"access_token": access_token, "token_type": "bearer"}
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error during login: {str(e)}")
+        logger.error(f"Error during login/signup: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error during login: {str(e)}"
+            detail=f"Database error during login/signup: {str(e)}"
         )
     finally:
         db.close()
